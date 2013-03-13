@@ -1,0 +1,201 @@
+<?php
+/**
+ * @file job.module
+ * Module created for simple test task.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function job_menu() { 
+  // This is the minimum information you can provide for a menu item.
+  $items['job/apply'] = array(
+    'title' => 'Apply for a job',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('job_apply_form'),
+    'access arguments' => array('job_apply'),
+  );
+  // This is a menu item for a form.
+  $items['admin/config/test'] = array(
+    'title' => 'system settings form for modifying email address',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('job_form'),
+    'access arguments' => array('administer_email_address'),
+  );
+  // Applicant info
+  $items['job/applicants'] = array(
+    'title' => 'Job applicants page',
+    'description' => 'Applicant info',
+    'page callback' => 'job_applicants_page',
+    'access arguments' => array('job_manage_applicants'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function job_theme() {
+  return array(
+    'job_applicant' => array(
+      'template' => 'job_applicant',
+      'variables' => array('app_info' => NULL),
+    ),
+  );
+}
+
+/**
+ * administer_email_address
+ */
+function job_form() {
+
+}
+
+/**
+ * Page for all applicants
+ * @return string
+ */
+function job_applicants_page() {
+  $app_id = arg(2);
+  if ($app_id > 0) {
+    $app_info = job_get_app_info($app_id);
+    $output = theme('job_applicant', array('app_info' => $app_info));
+  }
+
+  return $output;
+}
+
+function job_get_app_info($id) {
+  try {
+    $q = db_query('SELECT * FROM {job_applicants} WHERE id = :id', array('id'=>$id));
+  }
+  catch (Exception $e) {
+    drupal_set_message(t('db_query failed. Message = %message, query= %query',
+      array('%message' => $e->getMessage(), '%query' => $e->query_string)), 'error');
+  }
+  return db_result($q);
+}
+
+/**
+ * Implements hook_permission().
+ */
+function job_permission() {
+  return array(
+    'job_apply' => array(
+      'title' => t('Apply for a job'),
+      'description' => t('Able to Apply for a job'),
+    ),
+    'job_manage_applicants' => array(
+      'title' => t('Manage applicants'),
+      'description' => t('Allow to manage job applicants'),
+    ),
+    'administer_email_address' => array(
+      'title' => t('administer email address'),
+      'description' => t('Allow to administer email address'),
+    ),
+  );
+}
+
+function job_apply_form() {
+  $form = array();
+  $form['firstname'] = array(
+    '#weight' => '0',
+    '#required' => '0',
+    '#type' => 'textfield',
+    '#title' => t('My first name'),
+  );
+  $form['lastname'] = array(
+    '#weight' => '1',
+    '#required' => '0',
+    '#type' => 'textfield',
+    '#title' => t('My last name'),
+  );
+  $form['mail'] = array(
+    '#weight' => '2',
+    '#required' => '0',
+    '#type' => 'textfield',
+    '#title' => t('My e-mail address'),
+  );
+  $form['motivation'] = array(
+    '#required' => '0',
+    '#weight' => '3',
+    '#title' => t('My motiviation'),
+    '#description' => t('You may enter no more than @limit characters here',
+      array('@limit' => variable_get('job_motivation_max_chars', 500))),
+    '#type' => 'textarea',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#weight' => '4',
+    '#value' => t('Send'),
+  );
+
+  return $form;
+}
+
+
+function job_apply_form_validate(&$form, &$form_state) {
+  $mail_entered = $form_state['values']['mail'];
+  if (!valid_email_address($mail_entered)) {
+    form_set_error('mail',
+      t('The entered e-mail address "<em>@mail</em>" is not valid.',
+        array('@mail' => $mail_entered)));
+  }
+
+  $max_chars = variable_get('job_motivation_max_chars', 500);
+  if(strlen($form_state['values']['motivation']) > $max_chars) {
+    form_set_error('motivation',
+      t('The entered message has more than @limit characters.',
+        array('@limit' => $max_chars)));
+  }
+  ;
+  //dpm($form_state);
+}
+
+
+function job_apply_form_submit(&$form, &$form_state) {
+  global $language;
+  $current_language = isset($language) ? $language->language : 'none';
+
+  //  Submitted data is stored in a table 'job_applicants'.
+  $entry = array(
+    'firstname'   => $form_state['values']['firstname'],
+    'lastname'    => $form_state['values']['lastname'],
+    'mail'        => $form_state['values']['mail'],
+    'motivation'  => $form_state['values']['motivation'],
+    'created'     => REQUEST_TIME,
+    'language'    => $current_language,
+  );
+  $return = job_applicant_insert($entry);
+  if ($return) {
+    drupal_set_message(t("Created entry @entry", array('@entry' => print_r($entry, TRUE))));
+  }
+
+  drupal_set_message(t('Thanks for applying! We will contact you soon.'));
+  // Redirect to the home page.
+  drupal_goto();
+
+  // Send email
+  $to_addr = variable_get('test_contact_notify_address');
+  drupal_mail('job', 'job_applicantion', $to_addr, $current_language, $options, ini_get('sendmail_from'));
+}
+
+/**
+ * Saves applicant in a table 'job_applicants'.
+ * @param $entry
+ * @return DatabaseStatementInterface|int|null
+ */
+function job_applicant_insert($entry) {
+  $return_value = NULL;
+  try {
+    $return_value = db_insert('job_applicants')
+      ->fields($entry)
+      ->execute();
+  }
+  catch (Exception $e) {
+    drupal_set_message(t('db_insert failed. Message = %message, query= %query',
+      array('%message' => $e->getMessage(), '%query' => $e->query_string)), 'error');
+  }
+  return $return_value;
+}

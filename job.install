@@ -1,0 +1,67 @@
+<?php
+/**
+ * @file job.install
+ * Describes job_applicants scheme.
+ */
+
+
+/**
+ * Implements hook_schema().
+ */
+function job_schema() {
+  $schema['job_applicants'] = array(
+    'description' => 'Used for handling all job applicants',
+    'fields' => array(
+      'id' => array(
+        'description' => 'primary index',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'firstname' => array(
+        'description' => 'first name',
+        'type' => 'varchar',
+        'length' => '32',
+        'not null' => TRUE,
+      ),
+      'lastname' => array(
+        'description' => 'last name',
+        'type' => 'varchar',
+        'length' => '32',
+        'not null' => TRUE,
+      ),
+      'mail' => array(
+        'description' => 'mail',
+        'type' => 'varchar',
+        'length' => '254',
+        'not null' => TRUE,
+      ),
+      'motivation' => array(
+        'description' => 'motivation',
+        'type' => 'varchar',
+        'length' => '500',
+        'not null' => TRUE,
+      ),
+      'created' => array(
+        'description' => 'current time stamp in Unix format',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'language' => array(
+        'description' => 'current language',
+        'type' => 'varchar',
+        'length' => '2',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Enable languages support
+ */
+function job_update_7000() {
+
+}

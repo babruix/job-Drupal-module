@@ -1,0 +1,3 @@
+name = Job test module
+description = test task
+core = 7.x
